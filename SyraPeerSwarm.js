@@ -133,7 +133,6 @@ function SyraPeerSwarm(){
 						SPS.peersocket.emit("set peer rating",SPS.id,rating);
 						let max = Math.floor(rating/500);
 						SPS.peersocket.emit("set peer tier",SPS.id,SPS.tier);
-						alert(SPS.tier);
 						SPS.peersocket.emit("set peer max",SPS.id,max);
 					});
 					SPS.isrelaying = true;
@@ -177,7 +176,6 @@ function SyraPeerSwarm(){
 						SPS.peersocket.emit("set peer rating",SPS.id,rating);
 						let max = Math.floor(rating/500);
 						SPS.peersocket.emit("set peer tier",SPS.id,SPS.tier);
-						alert(SPS.tier);
 						SPS.peersocket.emit("set peer max",SPS.id,max);
 					});
 					SPS.isrelaying = true;
@@ -303,6 +301,7 @@ function SyraPeerSwarm(){
 				}
 			}
 			if(highest && !SPS.connected){
+				try{$("#tierlabel").html("You are connected to a level " + SPS.tier + " tier");}catch(e){ console.log(e); }
 				SPS.currentPeerId = highest;
 				SPS.log("Connecting to " + highest);
 				SPS.ConnectToPeer(highest);
