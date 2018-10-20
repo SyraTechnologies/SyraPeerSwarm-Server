@@ -251,12 +251,6 @@ function SyraPeerSwarm(){
 		this.log("Reconnecting to stream");
 		this.peersocket.emit("get peer list");
 	};
-	this.peersocket.on("best peer", (m) => {
-		SPS.log(m);
-	});
-	this.peersocket.on("done", (m) => {
-		SPS.log(m);
-	});
 	this.peersocket.on("hello", (m) => {
 		if(SPS.channelId)
 			SPS.peersocket.emit("join channel",SPS.channelId);
@@ -267,7 +261,6 @@ function SyraPeerSwarm(){
 	});
 	this.peersocket.on("peer list", (peers) => {
 		let length = Object.keys(peers).length;
-		SPS.log(peers);
 		if (length > 0) {
 			let i = 0;
 			let num = SPS.GetRandomNumber(length, 1);
