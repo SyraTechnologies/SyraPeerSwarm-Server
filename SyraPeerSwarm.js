@@ -1,0 +1,372 @@
+function SyraPeerSwarm(){
+	let SPS = this;
+	this.speedtested = false;
+	this.speedtest = function(callback) {
+		if(!this.speedtested){
+			this.speedtested = true;
+			let payload = '1';
+			for (var dup = 0; dup < 20; dup++){
+				payload += payload;
+			}
+			let boundary = "---------------------------7da24f2e50046";
+			let body = '--' + boundary + '\r\n'+ 'Content-Disposition: form-data; name="file";'+ 'filename="temp.txt"\r\n'+ 'Content-type: plain/text\r\n\r\n'+ payload + '\r\n'+ '--' + boundary + '--';
+			let upSpeed = 0 , startTime = 0, endTime = 0;
+			$.ajax({
+				xhr: () => {
+						let xhr = new window.XMLHttpRequest();
+						xhr.upload.addEventListener("progress", function(evt){
+							if(startTime == 0)
+								startTime = (new Date()).getTime();
+							if(evt.total == evt.loaded){
+								endTime = (new Date()).getTime();
+								upSpeed = (evt.loaded) / (endTime - startTime);
+								callback(Math.ceil(upSpeed));
+							}
+						}, false);
+					return xhr;
+				},
+				contentType: "multipart/form-data; boundary=" + boundary,
+				type: 'POST',
+				url: "/speedtest",
+				data: body,
+				success: function(data){
+				}
+			});
+		}
+	};
+	this.peersocket = io('wss://cryptsy.tv:443');
+	this.id = function(){
+		let text = "";
+		let letters = "abcdefghijklmnopqrstuvwxyz";
+		for (var i = 0; i < 16; i++)
+			text += letters.charAt(Math.floor(Math.random() * letters.length));
+		return text;
+	}();
+	this.options = {
+		'constraints': {
+			'mandatory': {
+				'OfferToReceiveAudio': true,
+				'OfferToReceiveVideo': true
+			}
+		}
+	}
+	this.video = null;
+	this.debug = true;
+	this.peercallaudio = null;
+	this.videoElement = "remotevideo";
+	this.peercallvideo = null;
+	this.mediastreamtemp = new MediaStream();
+	this.log = (m) => { if(this.debug) console.log(m);};
+	this.dataCons = {};
+	this.currentPeerId = 0;
+	this.failIds = {};
+	this.playTries = 0;
+	this.peeraudio = new Peer(this.id + "audio", { secure: true,port: 3001,host: "cryptsy.tv",path: "/peerjs",debug: 3,
+		config: {
+			'iceServers': [
+				{url: 'turn:turn.bistri.com:80', credential: 'homeo' ,username:'homeo'},
+				{url: 'turn:numb.viagenie.ca',credential: 'Testcell4506!@',username: 'support@script-it.net'},
+				{url: 'stun:stun2.l.google.com:19302'},
+				{url: 'stun:stun3.l.google.com:19302'},
+				{url: 'stun:stun4.l.google.com:19302'}
+		]}});
+	this.peervideo = new Peer(this.id + "video", { secure: true,port: 3001,host: "cryptsy.tv",path: "/peerjs",debug: 3,
+		config: {
+			'iceServers': [
+				{url: 'turn:turn.bistri.com:80', credential: 'homeo' ,username:'homeo'},
+				{url: 'turn:numb.viagenie.ca',credential: 'Testcell4506!@',username: 'support@script-it.net'},
+				{url: 'stun:stun2.l.google.com:19302'},
+				{url: 'stun:stun3.l.google.com:19302'},
+				{url: 'stun:stun4.l.google.com:19302'}
+		]}});
+
+
+	this.GetRandomNumber = (upto, not) => {
+		let raw = Math.random();
+		let number = Math.floor(raw * upto);
+		if (number > not) {
+			return number;
+		} else {
+			if (number > 3)
+				return number - 1;
+			else
+				return number + 1;
+		}
+	};
+
+	this.isblocked = (peer) => {
+		for (var i in this.failIds) {
+			if (i == peer && this.failIds[i] > 3) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	this.BindPeer = () => {
+
+		this.peeraudio.on('error', function(err) {
+			SPS.log("Peer audio error",JSON.stringify(err));
+			if (err.type == "peer-unavailable") {
+				SPS.connected = false;
+				if(!SPS.failIds[SPS.currentPeerId])
+					SPS.failIds[SPS.currentPeerId] = 1;
+				SPS.failIds[SPS.currentPeerId] = SPS.failIds[SPS.currentPeerId] + 1;
+				SPS.RetryConnection(true);
+			}
+		});
+		this.peeraudio.on('call', (call) => {
+			if (!SPS.broadcaster) {
+				SPS.peercallvideo = call
+				call.answer(null, SPS.options);
+				call.on('stream', function(stream) {
+					stream.getAudioTracks().forEach(track => SPS.mediastreamtemp.addTrack(track));
+					stream.oninactive = () => { SPS.connected = false; };
+					SPS.video.srcObject = SPS.mediastreamtemp;
+					SPS.video.play();
+					SPS.localStreamAudio = stream;
+					SPS.recordStreamAudio = stream;
+					SPS.peersocket.emit("add peer", SPS.id);
+					SPS.speedtest((rating) => {
+						SPS.peersocket.emit("set peer rating",SPS.id,rating);
+					});
+					SPS.isrelaying = true;
+				});
+			}
+		});
+		this.peeraudio.on('connection', function(conn) {
+			SPS.peerdatacon = conn;
+			SPS.dataCons[conn.id] = conn;
+			conn.on('open', () => {
+				conn.on('data', (data) => {
+					SPS.log(data);
+				});
+			});
+		});
+		this.peervideo.on('error', function(err) {
+			SPS.log("Peer video error",JSON.stringify(err));
+			if (err.type == "peer-unavailable") {
+				SPS.connected = false;
+				if(!SPS.failIds[SPS.currentPeerId])
+					SPS.failIds[SPS.currentPeerId] = 1;
+				SPS.failIds[SPS.currentPeerId] = SPS.failIds[SPS.currentPeerId] + 1;
+				SPS.RetryConnection(true);
+			}
+		});
+		this.peervideo.on('call', function(call) {
+			if (!this.broadcaster) {
+				SPS.log("Answering Call");
+				SPS.peercallaudio = call
+
+				call.answer(null, SPS.options);
+				call.on('stream', function(stream) {
+					stream.getVideoTracks().forEach(track => SPS.mediastreamtemp.addTrack(track));
+					stream.oninactive = () => { SPS.connected = false; };
+					SPS.video.srcObject = SPS.mediastreamtemp;
+					SPS.video.play();
+					SPS.localStreamVideo = stream;
+					SPS.recordStreamVideo = stream;
+					SPS.peersocket.emit("add peer", SPS.id);
+					SPS.speedtest((rating) => {
+						
+						SPS.peersocket.emit("set peer rating",SPS.id,rating);
+					});
+					SPS.isrelaying = true;
+				});
+			}
+		});
+
+	};
+	this.BindPeer();
+	this.AutoReconnect = () => {
+		if(window.ClearIntervals){
+			console.log("Clearing interval");
+			clearInterval(SPS.ARI);
+			window.IntervalExists = false;
+			window.ClearIntervals = false;
+		}
+		if(SPS.peervideo)
+				SPS.peersocket.emit("set peer clients",SPS.id,Object.keys(SPS.peervideo.connections).length);
+		
+		SPS.peersocket.emit("get channel clients");
+		
+		//SPS.log("auto");
+		if (SPS.broadcaster) {
+			SPS.peersocket.emit("add peer", SPS.id);
+			SPS.speedtest((rating) => {
+				SPS.peersocket.emit("set peer rating",SPS.id,rating);
+			});
+		} else {
+			SPS.peersocket.emit("get peer list"); 
+		}
+		if (!SPS.broadcaster) {
+			if (SPS.peercallvideo) {
+				if (!SPS.peercallvideo.pc) {
+					//If there is no connection then reconnect.
+					if(!SPS.failIds[SPS.currentPeerId])
+						SPS.failIds[SPS.currentPeerId] = 1;
+					SPS.failIds[SPS.currentPeerId] = SPS.failIds[SPS.currentPeerId] + 1;
+					SPS.RetryConnection(true); 
+					SPS.log("No peercall ");
+				} else {
+					//If connection exists then check the icestate to see if connected still
+					SPS.log("Ice connection state " + SPS.peercallvideo.pc.iceConnectionState);
+					switch (SPS.peercallvideo.pc.iceConnectionState) {
+						case 'disconnected':
+							if(!SPS.failIds[SPS.currentPeerId])
+								SPS.failIds[SPS.currentPeerId] = 1;
+							SPS.failIds[SPS.currentPeerId] = SPS.failIds[SPS.currentPeerId] + 1;
+							SPS.RetryConnection(true);
+							break;
+						case 'failed':
+							if(!SPS.failIds[SPS.currentPeerId])
+								SPS.failIds[SPS.currentPeerId] = 1;
+							SPS.failIds[SPS.currentPeerId] = SPS.failIds[SPS.currentPeerId] + 1;
+							SPS.RetryConnection(true);
+							break;
+					}
+				}
+			} else {
+				if(!SPS.failIds[SPS.currentPeerId])
+					SPS.failIds[SPS.currentPeerId] = 1;
+				SPS.failIds[SPS.currentPeerId] = SPS.failIds[SPS.currentPeerId] + 1;
+				SPS.RetryConnection(true);
+			}
+		}
+	};
+	this.RetryConnection = (setconnected) => {
+		if (setconnected) {
+			this.connected = false;
+		}
+		this.log("Re-establishing connection");
+		this.peersocket.emit("get peer list");
+	};
+	this.peersocket.on("best peer", (m) => {
+		SPS.log(m);
+	});
+	this.peersocket.on("done", (m) => {
+		SPS.log(m);
+	});
+	this.peersocket.on("hello", (m) => {
+		if(SPS.channelId)
+			SPS.peersocket.emit("join channel",SPS.channelId);
+	});
+	this.peersocket.on("channel clients", (m) => {
+		SPS.log(m + " clients");
+	});
+	this.peersocket.on("peer list", (peers) => {
+		let length = Object.keys(peers).length;
+		SPS.log(peers);
+		if (length > 0) {
+			let i = 0;
+			let num = SPS.GetRandomNumber(length, 1);
+			let highest = null;
+			let highestR = 0;
+			
+			for (var p in peers) {
+				let Clients = 0;
+				if(peers[p].Clients)
+					Clients = peers[p].Clients;
+				if(peers[p].Rating > highestR && Clients <= 3 && p != SPS.id ){ //Grab the highest rating connection with less than four connections.
+					highestR = peers[p].Rating;
+					highest = p;
+					SPS.log(highest + " has highest rating at " + highestR);
+				}
+				i = i + 1;
+				if (num == i && p != SPS.id && p != null && !SPS.isblocked(p)) {
+					if (!SPS.connected && !SPS.broadcaster && !highest) {
+						highest = p;
+						highestR = peers[p].Rating;
+						SPS.log("defaulting to random peer " + highest);
+					}
+				}
+			}
+			if(highest && !SPS.connected){
+				SPS.currentPeerId = highest;
+				SPS.log("Connecting to " + highest);
+				SPS.ConnectToPeer(highest);
+			}
+		}
+	});
+
+	this.peersocket.on("Call", (pr) => {
+		SPS.peercallaudio = SPS.peeraudio.call(pr + "audio", SPS.recordStreamAudio);
+		SPS.peercallvideo = SPS.peervideo.call(pr + "video", SPS.recordStreamVideo);
+	});
+
+	this.ConnectToPeer = (pr) => {
+		if (!this.connected) {
+			this.log("Unavailable");
+			this.connected = true;
+			this.mediastreamtemp = new MediaStream();
+			this.peersocket.emit("Call", pr, SPS.id);
+		}
+	};
+
+	this.WatchBroadcast = (rid) => {
+		this.video = document.getElementById(this.videoElement);
+		this.video.onloadedmetadata = function(e) {
+			SPS.video.play();
+		};
+		this.video.onsuspend = () => {
+			SPS.playTries = SPS.playTries + 1;
+			SPS.video.play();
+			if (SPS.playTries == 3) {
+				SPS.playTries = 0;
+				if(!this.failIds[this.currentPeerId])
+					this.failIds[this.currentPeerId] = 1;
+				this.failIds[this.currentPeerId] = this.failIds[this.currentPeerId] + 1;
+				SPS.RetryConnection(true);
+			}
+		};
+		//let room = document.getElementById("remotepeerid");
+		this.log(rid);
+		this.channelId = rid;
+		this.peersocket.emit("join channel",rid);
+		if(!this.ARI){
+			window.IntervalExists = true;
+			this.ARI = setInterval(this.AutoReconnect, 3000);
+		}
+	};
+	this.StartBroadcast = (rid) => {
+		$.get("/setliveid/" + rid,()=>{});
+		this.video = document.getElementById(this.videoElement);
+		this.video.onloadedmetadata = function(e) {
+			SPS.video.play();
+		};
+		this.video.onsuspend = () => {
+			this.playTries = this.playTries + 1;
+			this.video.play();
+			if (this.playTries == 3) {
+				if(!this.failIds[this.currentPeerId])
+					this.failIds[this.currentPeerId] = 1;
+				this.failIds[this.currentPeerId] = this.failIds[this.currentPeerId] + 1;
+				this.playTries = 0;
+				this.RetryConnection(true);
+			}
+		};
+		this.channelId = rid;
+		this.peersocket.emit("join channel",rid);
+		if(!this.ARI){
+			window.IntervalExists = true;
+			this.ARI = setInterval(this.AutoReconnect, 3000);
+		}
+		navigator.mediaDevices.getUserMedia({
+			video: true
+		}).
+		then((stream) => {
+			SPS.video.srcObject = stream;
+			SPS.video.play();
+			SPS.recordStreamVideo = stream;
+			SPS.broadcaster = true;
+		});
+		navigator.mediaDevices.getUserMedia({
+			audio: true
+		}).
+		then((stream) => {
+			SPS.recordStreamAudio = stream;
+			this.broadcaster = true;
+		});
+	};
+	return this;
+}
