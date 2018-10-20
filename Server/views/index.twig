@@ -1,0 +1,19 @@
+<html>
+	<head>
+		<script src="https://code.jquery.com/jquery-3.3.1.min.js"integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+		<script src="https://cryptsy.tv/assets/js/adapter.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/0.3.17/peer.min.js"></script>
+		<script src="https://cryptsy.tv/assets/js/SyraPeerSwarm.js"></script>
+		<script>
+			let SPB = new SyraPeerSwarm();
+			let SPV = new SyraPeerSwarm();
+		</script>
+	</head>
+	<body>
+		<video id="remotevideo" controls></video>
+		<video id="localvideo" controls></video>
+		<button class="button" onclick=" SPB.StartBroadcast('test');"> Start Broadcasting </button>
+		<button class="button" onclick="SPV.videoElement = 'localvideo'; SPV.WatchBroadcast('test');"> Watch Broadcasting </button>
+	</body>
+</html>

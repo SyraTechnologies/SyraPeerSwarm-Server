@@ -1,0 +1,44 @@
+The only prerequisite other than nodejs in order to run this NPM package is MongoDB.
+Please be sure to install MongoDB with a new user and an empty database!
+
+
+1. Update mongodb variables in env.txt
+2. run the command `npm install`
+3. Use autostart method of your choice to autostart the server with `npm start`
+
+You can run npm start manually and visit https://localhost:3000 to visit 
+
+
+
+
+
+
+
+
+Below are some helpful console commands useful for the lazy coder
+
+execute `mongo` in terminal
+after successful connection execute:
+	use admin
+	db.createUser(
+	  {
+		user: "admin",
+		pwd: "ENTERPASSWORDHERE",
+		roles: [ { role: "userAdminAnyDatabase", db: "admin" } ]
+	  }
+	)
+
+
+
+#!/bin/sh
+# This script uses (not included) Let's Encrypt certificates with a validity < 30 days
+
+if ! letsencrypt renew > /var/log/letsencrypt/renew.log 2>&1 ; then
+    echo Automated renewal failed:
+    cat /var/log/letsencrypt/renew.log
+    exit 1
+fi
+/usr/sbin/nginx -t && /usr/sbin/nginx -s reload && pm2 restart all
+
+
+
