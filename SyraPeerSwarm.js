@@ -34,7 +34,7 @@ function SyraPeerSwarm(){
 			});
 		}
 	};
-	this.peersocket = io('wss://cryptsy.tv:443');
+	this.peersocket = io('wss://localhost:443');
 	this.id = function(){
 		let text = "";
 		let letters = "abcdefghijklmnopqrstuvwxyz";
@@ -61,7 +61,7 @@ function SyraPeerSwarm(){
 	this.currentPeerId = 0;
 	this.failIds = {};
 	this.playTries = 0;
-	this.peeraudio = new Peer(this.id + "audio", { secure: true,port: 3001,host: "cryptsy.tv",path: "/peerjs",debug: 3,
+	this.peeraudio = new Peer(this.id + "audio", { secure: true,port: 3001,host: "localhost",path: "/peerjs",debug: 3,
 		config: {
 			'iceServers': [
 				{url: 'turn:turn.bistri.com:80', credential: 'homeo' ,username:'homeo'},
@@ -70,7 +70,7 @@ function SyraPeerSwarm(){
 				{url: 'stun:stun3.l.google.com:19302'},
 				{url: 'stun:stun4.l.google.com:19302'}
 		]}});
-	this.peervideo = new Peer(this.id + "video", { secure: true,port: 3001,host: "cryptsy.tv",path: "/peerjs",debug: 3,
+	this.peervideo = new Peer(this.id + "video", { secure: true,port: 3001,host: "localhost",path: "/peerjs",debug: 3,
 		config: {
 			'iceServers': [
 				{url: 'turn:turn.bistri.com:80', credential: 'homeo' ,username:'homeo'},
