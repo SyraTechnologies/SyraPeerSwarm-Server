@@ -54,7 +54,8 @@ function SyraPeerSwarm(){
 	this.debug = true;
 	this.peercallaudio = null;
 	this.availabletiers = 0;
-	this.videoElement = "remotevideo";
+	this.remotevideoElement = "remotevideo";
+	this.localvideoElement = "localvideo";
 	this.peercallvideo = null;
 	this.mediastreamtemp = new MediaStream();
 	this.log = (m) => { if(this.debug) console.log(m);};
@@ -117,16 +118,19 @@ function SyraPeerSwarm(){
 				SPS.RetryConnection(true);
 			}
 		});
-		this.peeraudio.on('call', (call) => {
+		//Received call from the broadcaster
+		this.peeraudio.on('call', (call) => { 
 			if (!SPS.broadcaster) {
-				SPS.peercallvideo = call
+				SPS.peercallvideo = call;
+				//Answer the call from broadcaster
 				call.answer(null, SPS.options);
+				//On receive stream
 				call.on('stream', (stream) => {
-					stream.getAudioTracks().forEach(track => SPS.mediastreamtemp.addTrack(track));
+					stream.getAudioTracks().forEach(track => SPS.mediastreamtemp.addTrack(track)); //Merge video and audio tracks into mediastreamtemp
 					stream.oninactive = () => { SPS.connected = false; };
+					//Set video source and play stream.
 					SPS.video.srcObject = SPS.mediastreamtemp;
 					SPS.video.play();
-					SPS.localStreamAudio = stream;
 					SPS.recordStreamAudio = stream;
 					SPS.peersocket.emit("add peer", SPS.id);
 					SPS.speedtest((rating) => {
@@ -139,15 +143,6 @@ function SyraPeerSwarm(){
 				});
 			}
 		});
-		this.peeraudio.on('connection', (conn) => {
-			SPS.peerdatacon = conn;
-			SPS.dataCons[conn.id] = conn;
-			conn.on('open', () => {
-				conn.on('data', (data) => {
-					SPS.log(data);
-				});
-			});
-		});
 		this.peervideo.on('error', (err) => {
 			SPS.log("Peer video error",JSON.stringify(err));
 			if (err.type == "peer-unavailable") {
@@ -158,18 +153,19 @@ function SyraPeerSwarm(){
 				SPS.RetryConnection(true);
 			}
 		});
-		this.peervideo.on('call', (call) => {
+		this.peervideo.on('call', (call) => { //Received call from broadcaster
 			if (!this.broadcaster) {
 				SPS.log("Answering Call");
-				SPS.peercallaudio = call
-
+				SPS.peercallaudio = call;
+				//Answer the call from broadcaster
 				call.answer(null, SPS.options);
+				//On receive stream
 				call.on('stream',(stream) => {
-					stream.getVideoTracks().forEach(track => SPS.mediastreamtemp.addTrack(track));
+					stream.getVideoTracks().forEach(track => SPS.mediastreamtemp.addTrack(track)); //Merge video and audio tracks into mediastreamtemp
 					stream.oninactive = () => { SPS.connected = false; };
+					//Set video source and play stream.
 					SPS.video.srcObject = SPS.mediastreamtemp;
 					SPS.video.play();
-					SPS.localStreamVideo = stream;
 					SPS.recordStreamVideo = stream;
 					SPS.peersocket.emit("add peer", SPS.id);
 					SPS.speedtest((rating) => {
@@ -308,9 +304,9 @@ function SyraPeerSwarm(){
 			}
 		}
 	});
-
-	this.peersocket.on("Call", (pr) => {
-		SPS.peercallaudio = SPS.peeraudio.call(pr + "audio", SPS.recordStreamAudio);
+    //Received call request from viewer
+	this.peersocket.on("Call", (pr) => { 
+		SPS.peercallaudio = SPS.peeraudio.call(pr + "audio", SPS.recordStreamAudio); 
 		SPS.peercallvideo = SPS.peervideo.call(pr + "video", SPS.recordStreamVideo);
 	});
 
@@ -324,7 +320,7 @@ function SyraPeerSwarm(){
 	};
 
 	this.WatchBroadcast = (rid) => {
-		this.video = document.getElementById(this.videoElement);
+		this.video = document.getElementById(this.remotevideoElement);
 		this.video.onloadedmetadata = (e) => {
 			SPS.video.play();
 		};
@@ -350,7 +346,7 @@ function SyraPeerSwarm(){
 	};
 	this.StartBroadcast = (rid) => {
 		$.get("/setliveid/" + rid,()=>{});
-		this.video = document.getElementById(this.videoElement);
+		this.video = document.getElementById(this.localvideoElement);
 		this.video.onloadedmetadata = (e) => {
 			SPS.video.play();
 		};
@@ -373,19 +369,16 @@ function SyraPeerSwarm(){
 		}
 		navigator.mediaDevices.getUserMedia({
 			video: true
-		}).
-		then((stream) => {
+		}).then((stream) => {
 			SPS.video.srcObject = stream;
 			SPS.video.play();
 			SPS.recordStreamVideo = stream;
-			SPS.broadcaster = true;
-		});
-		navigator.mediaDevices.getUserMedia({
-			audio: true
-		}).
-		then((stream) => {
-			SPS.recordStreamAudio = stream;
-			this.broadcaster = true;
+			navigator.mediaDevices.getUserMedia({
+				audio: true
+			}).then((stream) => {
+				SPS.recordStreamAudio = stream;
+				SPS.broadcaster = true;
+			});
 		});
 	};
 	return this;
