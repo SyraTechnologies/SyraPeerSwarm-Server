@@ -12,7 +12,10 @@ SP.StartBroadcast("CHANNEL ID");
 SP.WatchBroadcast("CHANNEL ID");
 </code><br/>
 <code>
-SP.videoElement = "remotevideo";
+SP.remotevideoElement = "remotevideo"; //Viewer
+</code>
+<code>
+SP.localvideoElement = "localvideo"; //Broadcaster
 </code>
 
 
