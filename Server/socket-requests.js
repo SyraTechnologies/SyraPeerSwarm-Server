@@ -20,7 +20,6 @@ module.exports = function(socket,channels,sockets,sessions) {
 				let temp = channels[socket.Channel].peers[peer]
 				temp.Rating = rating;
 				channels[socket.Channel].peers[peer] = temp;
-				socket.emit("done",channels[socket.Channel].peers[peer]);
 			}
 		}
 	});
