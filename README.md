@@ -17,6 +17,6 @@ SP.videoElement = "remotevideo";
 
 
 <h1>Recent additions:</h1><br/>
-Added a rating system to rate peers based on their connection.
-Added a check to determine, from the rating system, the amount of connections a peer can support.
-Added in additional methods of detecting when the stream has been interrupted.
+Added a rating system to rate peers based on their connection.<br/>
+Added a check to determine, from the rating system, the amount of connections a peer can support.<br/>
+Added in additional methods of detecting when the stream has been interrupted.<br/>
