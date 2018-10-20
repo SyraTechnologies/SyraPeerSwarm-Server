@@ -4,13 +4,13 @@ This is an attempt to use peerjs to create a scalable p2p video system. It rates
 <br/><br/>
 <code>
 SP = new SyraPeerSwarm();
-</code>
+</code><br/>
 <code>
 SP.StartBroadcast("CHANNEL ID");
-</code>
+</code><br/>
 <code>
 SP.WatchBroadcast("CHANNEL ID");
-</code>
+</code><br/>
 <code>
 SP.videoElement = "remotevideo";
 </code>
