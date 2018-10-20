@@ -29,7 +29,6 @@ module.exports = function(socket,channels,sockets,sessions) {
 				let temp = channels[socket.Channel].peers[peer]
 				temp.Max = max;
 				channels[socket.Channel].peers[peer] = temp;
-				socket.emit("done",channels[socket.Channel].peers[peer]);
 			}
 		}
 	});
@@ -37,7 +36,6 @@ module.exports = function(socket,channels,sockets,sessions) {
 		if(channels[socket.Channel]){
 			if(channels[socket.Channel].peers[peer]){
 				channels[socket.Channel].peers[peer].Tier = tier;
-				socket.emit("done",channels[socket.Channel].peers[peer]);
 			}
 		}
 	});
