@@ -24,6 +24,24 @@ module.exports = function(socket,channels,sockets,sessions) {
 			}
 		}
 	});
+	socket.on("set peer max",function(peer,max){
+		if(channels[socket.Channel]){
+			if(channels[socket.Channel].peers[peer]){
+				let temp = channels[socket.Channel].peers[peer]
+				temp.Max = max;
+				channels[socket.Channel].peers[peer] = temp;
+				socket.emit("done",channels[socket.Channel].peers[peer]);
+			}
+		}
+	});
+	socket.on("set peer tier",function(peer, tier){
+		if(channels[socket.Channel]){
+			if(channels[socket.Channel].peers[peer]){
+				channels[socket.Channel].peers[peer].Tier = tier;
+				socket.emit("done",channels[socket.Channel].peers[peer]);
+			}
+		}
+	});
 	socket.on("get channel clients",function(){
 		let count = 0;
 		
@@ -93,7 +111,7 @@ module.exports = function(socket,channels,sockets,sessions) {
 		if(channels[socket.Channel]){
 			if(!channels[socket.Channel].peers[peer]){
 				socket.peerid = peer;
-				channels[socket.Channel].peers[peer] = {Rating: 0};
+				channels[socket.Channel].peers[peer] = {Rating: 0, Max: 0, Tier: 0};
 				socket.emit("peer list", channels[socket.Channel].peers);
 			}
         }
