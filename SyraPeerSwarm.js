@@ -1,7 +1,7 @@
 function SyraPeerSwarm(){
 	let SPS = this;
 	this.speedtested = false;
-	this.speedtest = function(callback) {
+	this.speedtest = (callback) => {
 		if(!this.speedtested){
 			this.speedtested = true;
 			let payload = '1';
@@ -14,7 +14,7 @@ function SyraPeerSwarm(){
 			$.ajax({
 				xhr: () => {
 						let xhr = new window.XMLHttpRequest();
-						xhr.upload.addEventListener("progress", function(evt){
+						xhr.upload.addEventListener("progress", (evt) => {
 							if(startTime == 0)
 								startTime = (new Date()).getTime();
 							if(evt.total == evt.loaded){
@@ -29,7 +29,7 @@ function SyraPeerSwarm(){
 				type: 'POST',
 				url: "/speedtest",
 				data: body,
-				success: function(data){
+				success: (data) => {
 				}
 			});
 		}
@@ -105,7 +105,7 @@ function SyraPeerSwarm(){
 
 	this.BindPeer = () => {
 
-		this.peeraudio.on('error', function(err) {
+		this.peeraudio.on('error', (err) => {
 			SPS.log("Peer audio error",JSON.stringify(err));
 			if (err.type == "peer-unavailable") {
 				SPS.connected = false;
@@ -119,7 +119,7 @@ function SyraPeerSwarm(){
 			if (!SPS.broadcaster) {
 				SPS.peercallvideo = call
 				call.answer(null, SPS.options);
-				call.on('stream', function(stream) {
+				call.on('stream', (stream) => {
 					stream.getAudioTracks().forEach(track => SPS.mediastreamtemp.addTrack(track));
 					stream.oninactive = () => { SPS.connected = false; };
 					SPS.video.srcObject = SPS.mediastreamtemp;
@@ -134,7 +134,7 @@ function SyraPeerSwarm(){
 				});
 			}
 		});
-		this.peeraudio.on('connection', function(conn) {
+		this.peeraudio.on('connection', (conn) => {
 			SPS.peerdatacon = conn;
 			SPS.dataCons[conn.id] = conn;
 			conn.on('open', () => {
@@ -143,7 +143,7 @@ function SyraPeerSwarm(){
 				});
 			});
 		});
-		this.peervideo.on('error', function(err) {
+		this.peervideo.on('error', (err) => {
 			SPS.log("Peer video error",JSON.stringify(err));
 			if (err.type == "peer-unavailable") {
 				SPS.connected = false;
@@ -153,13 +153,13 @@ function SyraPeerSwarm(){
 				SPS.RetryConnection(true);
 			}
 		});
-		this.peervideo.on('call', function(call) {
+		this.peervideo.on('call', (call) => {
 			if (!this.broadcaster) {
 				SPS.log("Answering Call");
 				SPS.peercallaudio = call
 
 				call.answer(null, SPS.options);
-				call.on('stream', function(stream) {
+				call.on('stream',(stream) => {
 					stream.getVideoTracks().forEach(track => SPS.mediastreamtemp.addTrack(track));
 					stream.oninactive = () => { SPS.connected = false; };
 					SPS.video.srcObject = SPS.mediastreamtemp;
@@ -305,7 +305,7 @@ function SyraPeerSwarm(){
 
 	this.WatchBroadcast = (rid) => {
 		this.video = document.getElementById(this.videoElement);
-		this.video.onloadedmetadata = function(e) {
+		this.video.onloadedmetadata = (e) => {
 			SPS.video.play();
 		};
 		this.video.onsuspend = () => {
@@ -331,7 +331,7 @@ function SyraPeerSwarm(){
 	this.StartBroadcast = (rid) => {
 		$.get("/setliveid/" + rid,()=>{});
 		this.video = document.getElementById(this.videoElement);
-		this.video.onloadedmetadata = function(e) {
+		this.video.onloadedmetadata = (e) => {
 			SPS.video.play();
 		};
 		this.video.onsuspend = () => {
