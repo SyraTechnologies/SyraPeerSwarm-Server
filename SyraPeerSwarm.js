@@ -129,6 +129,8 @@ function SyraPeerSwarm(){
 					SPS.peersocket.emit("add peer", SPS.id);
 					SPS.speedtest((rating) => {
 						SPS.peersocket.emit("set peer rating",SPS.id,rating);
+						let max = Math.floor(rating/500);
+						SPS.peersocket.emit("set peer max",SPS.id,max);
 					});
 					SPS.isrelaying = true;
 				});
@@ -168,8 +170,9 @@ function SyraPeerSwarm(){
 					SPS.recordStreamVideo = stream;
 					SPS.peersocket.emit("add peer", SPS.id);
 					SPS.speedtest((rating) => {
-						
 						SPS.peersocket.emit("set peer rating",SPS.id,rating);
+						let max = Math.floor(rating/500);
+						SPS.peersocket.emit("set peer max",SPS.id,max);
 					});
 					SPS.isrelaying = true;
 				});
@@ -181,7 +184,7 @@ function SyraPeerSwarm(){
 	this.AutoReconnect = () => {
 		if(window.ClearIntervals){
 			console.log("Clearing interval");
-			clearInterval(SPS.ARI);
+			try{clearInterval(SPS.ARI);}catch(e){console.log(e);}
 			window.IntervalExists = false;
 			window.ClearIntervals = false;
 		}
@@ -195,6 +198,9 @@ function SyraPeerSwarm(){
 			SPS.peersocket.emit("add peer", SPS.id);
 			SPS.speedtest((rating) => {
 				SPS.peersocket.emit("set peer rating",SPS.id,rating);
+				let max = Math.floor(rating/500);
+				alert(max);
+				SPS.peersocket.emit("set peer max",SPS.id,max);
 			});
 		} else {
 			SPS.peersocket.emit("get peer list"); 
@@ -264,10 +270,9 @@ function SyraPeerSwarm(){
 			let highestR = 0;
 			
 			for (var p in peers) {
-				let Clients = 0;
-				if(peers[p].Clients)
-					Clients = peers[p].Clients;
-				if(peers[p].Rating > highestR && Clients <= 3 && p != SPS.id ){ //Grab the highest rating connection with less than four connections.
+				let Clients = peers[p].Clients ? peers[p].Clients : 0;
+				let Max = peers[p].Max ? peers[p].Max : 0;
+				if(peers[p].Rating > highestR && Clients <= Max && p != SPS.id ){ //Grab the highest rating connection with less than four connections.
 					highestR = peers[p].Rating;
 					highest = p;
 					SPS.log(highest + " has highest rating at " + highestR);

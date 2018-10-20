@@ -16,5 +16,5 @@ SP.videoElement = "remotevideo";
 </code>
 
 
-Upcoming additions:
-Adding a check to determine the amount of connections a peer will support.
+<h1>Upcoming additions:</h1><br/>
+Add a check to determine the amount of connections a peer can likely support.
