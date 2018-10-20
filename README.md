@@ -14,3 +14,7 @@ SP.WatchBroadcast("CHANNEL ID");
 <code>
 SP.videoElement = "remotevideo";
 </code>
+
+
+Upcoming additions:
+Adding a check to determine the amount of connections a peer will support.
