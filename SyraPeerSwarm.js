@@ -1,9 +1,9 @@
 function SyraPeerSwarm() {
     let SPS = this;
-    this.speedtested = false;
-    this.speedtest = (callback) => {
-        if (!this.speedtested) {
-            this.speedtested = true;
+    SPS.speedtested = false;
+    SPS.speedtest = (callback) => {
+        if (!SPS.speedtested) {
+            SPS.speedtested = true;
             let payload = '1';
             for (var dup = 0; dup < 20; dup++) {
                 payload += payload;
@@ -35,15 +35,15 @@ function SyraPeerSwarm() {
             });
         }
     };
-    this.peersocket = io('wss://localhost:443');
-    this.id = function() {
+    SPS.peersocket = io('wss://localhost:443');
+    SPS.id = function() {
         let text = "";
         let letters = "abcdefghijklmnopqrstuvwxyz";
         for (var i = 0; i < 16; i++)
             text += letters.charAt(Math.floor(Math.random() * letters.length));
         return text;
     }();
-    this.options = {
+    SPS.options = {
         'constraints': {
             'mandatory': {
                 'OfferToReceiveAudio': true,
@@ -51,20 +51,20 @@ function SyraPeerSwarm() {
             }
         }
     }
-    this.debug = true;
-    this.availabletiers = 0;
-    this.remotevideoElement = "remotevideo";
-    this.localvideoElement = "localvideo";
-    this.mediastreamtemp = new MediaStream();
-    this.log = (m) => {
-        if (this.debug) console.log(m);
+    SPS.debug = true;
+    SPS.availabletiers = 0;
+    SPS.remotevideoElement = "remotevideo";
+    SPS.localvideoElement = "localvideo";
+    SPS.mediastreamtemp = new MediaStream();
+    SPS.log = (m) => {
+        if (SPS.debug) console.log(m);
     };
-    this.dataCons = {};
-    this.currentPeerId = 0;
-    this.failIds = {};
-    this.tier = 0;
-    this.playTries = 0;
-    this.peeraudio = new Peer(this.id + "audio", {
+    SPS.dataCons = {};
+    SPS.currentPeerId = 0;
+    SPS.failIds = {};
+    SPS.tier = 0;
+    SPS.playTries = 0;
+    SPS.peeraudio = new Peer(SPS.id + "audio", {
         secure: true,
         port: 3001,
         host: "localhost",
@@ -92,7 +92,7 @@ function SyraPeerSwarm() {
             ]
         }
     });
-    this.peervideo = new Peer(this.id + "video", {
+    SPS.peervideo = new Peer(SPS.id + "video", {
         secure: true,
         port: 3001,
         host: "localhost",
@@ -122,7 +122,7 @@ function SyraPeerSwarm() {
     });
 
 
-    this.GetRandomNumber = (upto, not) => {
+    SPS.GetRandomNumber = (upto, not) => {
         let raw = Math.random();
         let number = Math.floor(raw * upto);
         if (number > not) {
@@ -135,24 +135,23 @@ function SyraPeerSwarm() {
         }
     };
 
-    this.isblocked = (peer) => {
-        for (var i in this.failIds) {
-            if (i == peer && this.failIds[i] > 3) {
+    SPS.isblocked = (peer) => {
+        for (var i in SPS.failIds) {
+            if (i == peer && SPS.failIds[i] > 3) {
                 return true;
             }
         }
         return false;
     };
-    this.BindPeer = () => {
-        this.peeraudio.on('error', (err) => {
+    SPS.BindPeer = () => {
+        SPS.peeraudio.on('error', (err) => {
             SPS.log("Peer audio error", JSON.stringify(err));
             if (err.type == "peer-unavailable") {
-                SPS.connected = false;
                 SPS.RetryConnection(true);
             }
         });
         //Received call from the broadcaster
-        this.peeraudio.on('call', (call) => {
+        SPS.peeraudio.on('call', (call) => {
             if (!SPS.isbroadcaster) {
                 SPS.peercallaudioreceive = call;
                 //Answer the call from broadcaster
@@ -167,7 +166,7 @@ function SyraPeerSwarm() {
                     SPS.video.srcObject = SPS.mediastreamtemp;
                     SPS.video.play();
                     SPS.recordStreamAudio = stream;
-                    SPS.peersocket.emit("add peer", SPS.id);
+                   // SPS.peersocket.emit("add peer", SPS.id);
                     SPS.speedtest((rating) => {
                         SPS.peersocket.emit("set peer rating", SPS.id, rating);
                         let max = Math.floor(rating / 500);
@@ -178,50 +177,16 @@ function SyraPeerSwarm() {
                 });
             }
         });
-        this.peervideo.on('error', (err) => {
+        SPS.peervideo.on('error', (err) => {
             SPS.log("Peer video error", JSON.stringify(err));
             if (err.type == "peer-unavailable") {
                 SPS.connected = false;
                 SPS.RetryConnection(true);
             }
         });
-        this.peervideo.on('call', (call) => { //Received call from broadcaster
-            if (!this.isbroadcaster) {
+        SPS.peervideo.on('call', (call) => { //Received call from broadcaster
+            if (!SPS.isbroadcaster) {
                 SPS.peercallvideoreceive = call;
-
-
-                let hasDropped = new Promise(resolve => {
-                    SPS.icfd = true;
-                    let lastPackets = countdown = 0,
-                        timeout = 3; // seconds
-                    let iv = setInterval(() => {
-                        try {
-                            call.pc.getStats().then(stats => {
-                                let packets = null;
-                                try {
-                                    packets = SPS.findStat(stats, "inbound-rtp").packetsReceived;
-                                } catch (e) {
-                                    resolve(clearInterval(iv));
-                                }
-                                countdown = (packets - lastPackets) ? timeout : countdown - 1;
-                                if (!countdown) {
-                                    SPS.icfd = false;
-                                    resolve(clearInterval(iv));
-                                }
-                                lastPackets = packets;
-                            })
-                        } catch (e) {
-                            resolve(clearInterval(iv));
-                        }
-                    }, 1000);
-
-                });
-
-                hasDropped.then(() => {
-                    SPS.RetryConnection(true);
-                }).catch((e) => {
-                    console.log(e);
-                });
 
                 SPS.log("Answering Call");
                 //Answer the call from broadcaster
@@ -236,7 +201,7 @@ function SyraPeerSwarm() {
                     SPS.video.srcObject = SPS.mediastreamtemp;
                     SPS.video.play();
                     SPS.recordStreamVideo = stream;
-                    SPS.peersocket.emit("add peer", SPS.id);
+                    //SPS.peersocket.emit("add peer", SPS.id);
                     SPS.speedtest((rating) => {
                         SPS.peersocket.emit("set peer rating", SPS.id, rating);
                         let max = Math.floor(rating / 500);
@@ -249,9 +214,9 @@ function SyraPeerSwarm() {
         });
 
     };
-    this.BindPeer();
-    this.findStat = (m, type) => [...m.values()].find(s => s.type == type && !s.isRemote);
-    this.AutoReconnect = () => {
+    SPS.BindPeer();
+    SPS.findStat = (m, type) => [...m.values()].find(s => s.type == type && !s.isRemote);
+    SPS.AutoReconnect = () => {
 
         if (window.ClearIntervals) {
             console.log("Clearing interval");
@@ -263,12 +228,12 @@ function SyraPeerSwarm() {
             window.IntervalExists = false;
             window.ClearIntervals = false;
         }
-
+		
         if (SPS.peervideo)
             SPS.peersocket.emit("set peer clients", SPS.id, Object.keys(SPS.peervideo.connections).length - 1);
         SPS.peersocket.emit("get channel clients");
-        if (SPS.isbroadcaster) {
-            SPS.peersocket.emit("add peer", SPS.id);
+        SPS.peersocket.emit("add peer", SPS.id);
+		if (SPS.isbroadcaster) {
             SPS.speedtest((rating) => {
                 SPS.tier = 0;
                 SPS.peersocket.emit("set peer rating", SPS.id, rating);
@@ -302,30 +267,29 @@ function SyraPeerSwarm() {
             }
         }
     };
-    this.RetryConnection = (setconnected) => {
-        if (this.currentPeerId != 0) {
-            if (!this.failIds[this.currentPeerId])
-                this.failIds[this.currentPeerId] = 1;
-            this.failIds[this.currentPeerId] = this.failIds[this.currentPeerId] + 1;
+    SPS.RetryConnection = (setconnected) => {
+        if (SPS.currentPeerId != 0) {
+            if (!SPS.failIds[SPS.currentPeerId])
+                SPS.failIds[SPS.currentPeerId] = 1;
+            SPS.failIds[SPS.currentPeerId] = SPS.failIds[SPS.currentPeerId] + 1;
         }
-        if (setconnected) {
-            this.connected = false;
-        }
-        this.recordStreamAudio = null;
-        this.recordStreamVideo = null;
+		SPS.connected = false;
+        SPS.recordStreamAudio = null;
+        SPS.recordStreamVideo = null;
 
-        this.log("Reconnecting to stream");
-        this.peersocket.emit("get peer list");
+        SPS.log("Reconnecting to stream");
+		//if(!SPS.connected)
+		SPS.peersocket.emit("get peer list");
     };
-    this.peersocket.on("hello", (m) => {
+    SPS.peersocket.on("hello", (m) => {
         if (SPS.channelId)
             SPS.peersocket.emit("join channel", SPS.channelId);
     });
-    this.peersocket.on("channel clients", (m) => {
+    SPS.peersocket.on("channel clients", (m) => {
         SPS.availabletiers = Math.ceil(parseFloat(m) / 4);
         SPS.log(m + " clients");
     });
-    this.peersocket.on("peer list", (peers) => {
+    SPS.peersocket.on("peer list", (peers) => {
         SPS.log(peers);
         let length = Object.keys(peers).length;
         if (length > 0) {
@@ -338,9 +302,11 @@ function SyraPeerSwarm() {
                 let Clients = peers[p].Clients ? peers[p].Clients : 0;
                 let Max = peers[p].Max;
                 if (peers[p].Rating > highestR && Clients <= Max && p != SPS.id && peers[p].Tier <= SPS.availabletiers) { //Grab the highest rating connection with less than four connections.
-                    highestR = peers[p].Rating;
-                    highest = p;
-                    SPS.tier = peers[p].Tier + 1;
+                    if(p != SPS.currentPeerId){
+						highestR = peers[p].Rating;
+						highest = p;
+						SPS.tier = peers[p].Tier + 1;
+					}
                     SPS.log(highest + " has highest rating at " + highestR);
                 }
                 i = i + 1;
@@ -361,54 +327,77 @@ function SyraPeerSwarm() {
                 }
                 SPS.currentPeerId = highest;
                 SPS.log("Connecting to " + highest);
+				SPS.peersocket.emit("delete peer", highest);
                 SPS.ConnectToPeer(highest);
             }
         }
     });
     //Received call request from viewer
-    this.peersocket.on("Call", (pr) => {
+    SPS.peersocket.on("Call", (pr) => {
         if (SPS.recordStreamAudio)
             SPS.peercallaudio = SPS.peeraudio.call(pr + "audio", SPS.recordStreamAudio);
         if (SPS.recordStreamVideo)
             SPS.peercallvideo = SPS.peervideo.call(pr + "video", SPS.recordStreamVideo);
     });
-    this.ConnectToPeer = (pr) => {
-        if (!this.connected) {
-            this.log("Unavailable");
-            this.connected = true;
-            this.mediastreamtemp = new MediaStream();
-            this.peersocket.emit("Call", pr, SPS.id);
+    SPS.ConnectToPeer = (pr) => {
+        if (!SPS.connected) {
+            SPS.log("Unavailable");
+            SPS.connected = true;
+            SPS.mediastreamtemp = new MediaStream();
+            SPS.peersocket.emit("Call", pr, SPS.id);
         }
     };
-    this.WatchBroadcast = (rid) => {
-        this.video = document.getElementById(this.remotevideoElement);
-        this.video.onloadedmetadata = (e) => {
+    SPS.WatchBroadcast = (rid) => {
+        SPS.video = document.getElementById(SPS.remotevideoElement);
+		let hasDropped = new Promise(resolve => {
+			SPS.icfd = true;
+			let lastPackets = countdown = 0,
+				timeout = 3; // seconds
+			let lastTime = 0;
+			let iv = setInterval(() => {
+				if(lastTime == SPS.video.currentTime)
+					SPS.RetryConnection(true
+				lastTime = SPS.video.currentTime;
+			}, 4000);
+		});
+
+		hasDropped.then(() => {
+			SPS.log("Video was paused too long. Reconnecting");
+			SPS.RetryConnection(true);
+		}).catch((e) => {
+			console.log(e);
+		});
+		SPS.video.onplay = () => {
+		};
+        SPS.video.onloadedmetadata = (e) => {
             SPS.video.play();
         };
-        this.video.onsuspend = () => {
+        SPS.video.onsuspend = () => {
             SPS.RetryConnection(true);
         };
-        this.channelId = rid;
-        this.peersocket.emit("join channel", rid);
-        if (!this.ARI) {
+        SPS.channelId = rid;
+        SPS.peersocket.emit("join channel", rid);
+        if (!SPS.ARI) {
             window.IntervalExists = true;
-            this.ARI = setInterval(this.AutoReconnect, 3000);
+            SPS.ARI = setInterval(SPS.AutoReconnect, 2000);
         }
     };
-    this.StartBroadcast = (rid) => {
+    SPS.StartBroadcast = (rid) => {
         $.get("/setliveid/" + rid, () => {});
-        this.video = document.getElementById(this.localvideoElement);
-        this.video.onloadedmetadata = (e) => {
+		console.log("video element",SPS.localvideoElement);
+        SPS.video = document.getElementById(SPS.localvideoElement);
+		console.log(SPS.video);
+        SPS.video.onloadedmetadata = (e) => {
             SPS.video.play();
         };
-        this.video.onsuspend = () => {
+        SPS.video.onsuspend = () => {
             SPS.RetryConnection(true);
         };
-        this.channelId = rid;
-        this.peersocket.emit("join channel", rid);
-        if (!this.ARI) {
+        SPS.channelId = rid;
+        SPS.peersocket.emit("join channel", rid);
+        if (!SPS.ARI) {
             window.IntervalExists = true;
-            this.ARI = setInterval(this.AutoReconnect, 3000);
+            SPS.ARI = setInterval(SPS.AutoReconnect, 2000);
         }
         navigator.mediaDevices.getUserMedia({
             video: true
@@ -424,5 +413,5 @@ function SyraPeerSwarm() {
             });
         });
     };
-    return this;
+    return SPS;
 }
