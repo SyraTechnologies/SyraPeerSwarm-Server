@@ -356,7 +356,7 @@ function SyraPeerSwarm() {
 			let lastTime = 0;
 			let iv = setInterval(() => {
 				if(lastTime == SPS.video.currentTime)
-					SPS.RetryConnection(true
+					SPS.RetryConnection(true);
 				lastTime = SPS.video.currentTime;
 			}, 4000);
 		});
