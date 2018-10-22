@@ -59,24 +59,6 @@ module.exports = function(socket,channels,sockets,sessions) {
 			}
 		}
 	});
-	socket.on("get best peer",function(){
-		let currentHR = 0;
-		let currentHRG = {};
-		let currentPN = "";
-		for(var i in channels[socket.Channel].peers){
-			let peer = channels[socket.Channel].peers[i];
-			currentPN = i;
-			if(peer.Rating > currentHR){
-				currentHR = peer.Rating;
-				currentHRG = {};
-				currentHRG[currentPN] = peer
-			}else if(currentHR == 0){
-				currentHRG = {};
-				currentHRG[currentPN] = peer
-			}
-		}
-		socket.emit("best peer",currentHRG);
-	});
 	socket.on("Call",function(tid,rid){
 		log("Making call to " + tid + " from " + rid);
 		sockets[rid] = socket;
@@ -121,33 +103,6 @@ module.exports = function(socket,channels,sockets,sessions) {
 			}
 		}
 	});
-
-    socket.on("Offer", function(desc,rid,ssid) { //desc //rid
-		sessions[ssid] = socket;
-		
-		log("Offer created " + rid + " " + ssid);
-        if (sockets[rid]) {
-			try{
-				sockets[rid].emit("Offer", desc, ssid);
-			}catch(e){}
-        }
-    });
-    socket.on("Answer", function(desc,sid,ssid) {
-		log("Answer created");
-        if (sessions[sid]) {
-			try {
-				sessions[sid].emit("Answer", desc, sid);
-			} catch (e) {}
-        }
-    });
-    socket.on("addIceCandidate", function(candidate,ssid) {
-        if (sessions[ssid]) {
-			log("Ice candidate added");
-			try {
-				sessions[ssid].emit("addIceCandidate", candidate,ssid);
-			} catch (e) {}
-        }
-    });
     socket.on('join channel', function(channel) {
         try {
             if (!channels[channel]) {
