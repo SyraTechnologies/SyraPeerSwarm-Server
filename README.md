@@ -12,12 +12,17 @@ SP.StartBroadcast("CHANNEL ID");
 SP.WatchBroadcast("CHANNEL ID");
 </code><br/>
 <code>
+SP.onVideoDrop = () => { SP.log("Video dropped"); };
+</code><br/>
+<code>
 SP.remotevideoElement = "remotevideo"; //Viewer
 </code></br>
 <code>
 SP.localvideoElement = "localvideo"; //Broadcaster
 </code>
-
+<code>
+SP.log(SP.id);
+</code>
 
 <h1>Recent additions:</h1><br/>
 Added a rating system to rate peers based on their connection.<br/>
