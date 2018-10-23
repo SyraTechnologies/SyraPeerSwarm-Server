@@ -1,4 +1,5 @@
 function SyraPeerSwarm() {
+	
     let SPS = this;
     SPS.speedtested = false;
 	SPS.debug = true;
@@ -14,6 +15,53 @@ function SyraPeerSwarm() {
     SPS.failIds = {};
     SPS.tier = 0;
     SPS.playTries = 0;
+	SPS.test = () => {
+		SPS.peersocket.emit("join channel","test");
+		SPS.peersocket.emit("add peer",SPS.id);
+		
+	};
+	
+	// StreamHasData.js - Muaz Khan - RTCMultiConnection
+	SPS.StreamHasData = (function() {
+		function checkIfStreamHasData(mediaElement, successCallback) {
+			// chrome for android may have some features missing
+
+			if (!mediaElement.numberOfTimes) {
+				mediaElement.numberOfTimes = 0;
+			}
+
+			mediaElement.numberOfTimes++;
+			console.log(mediaElement.buffered)
+			console.log(mediaElement.readyState);
+			if (mediaElement.readyState != HTMLMediaElement.HAVE_CURRENT_DATA && mediaElement.readyState != HTMLMediaElement.HAVE_NOTHING) {
+				return successCallback(true);
+			}else if (mediaElement.numberOfTimes >= 5) { // wait 60 seconds while video is delivered!
+				return successCallback(false);
+			}else if (mediaElement.numberOfTimes < 5){
+				setTimeout(function() {
+					checkIfStreamHasData(mediaElement, successCallback);
+				}, 900);
+			}
+		}
+
+		return {
+			check: function(stream, callback) {
+				if (stream instanceof HTMLMediaElement) {
+					checkIfStreamHasData(stream, callback);
+					return;
+				}
+
+				if (stream instanceof MediaStream) {
+					var mediaElement = document.createElement('video');
+					mediaElement.muted = true;
+					mediaElement.srcObject = stream;
+					mediaElement.style.display = 'none';
+					(document.body || document.documentElement).appendChild(mediaElement);
+					checkIfStreamHasData(mediaElement, callback);
+				}
+			}
+		};
+	})();
 	SPS.speedtest = (callback) => {
         if (!SPS.speedtested) {
             SPS.speedtested = true;
@@ -56,6 +104,15 @@ function SyraPeerSwarm() {
             text += letters.charAt(Math.floor(Math.random() * letters.length));
         return text;
     }();
+	SPS.resetId = () => {
+		SPS.id = function() {
+			let text = "";
+			let letters = "abcdefghijklmnopqrstuvwxyz";
+			for (var i = 0; i < 16; i++)
+				text += letters.charAt(Math.floor(Math.random() * letters.length));
+			return text;
+		}();
+	};
     SPS.options = {
         'constraints': {
             'mandatory': {
@@ -64,7 +121,9 @@ function SyraPeerSwarm() {
             }
         }
     }
-    SPS.peeraudio = new Peer(SPS.id + "audio", {
+        
+	SPS.InitNewPeer = (id,type) => {
+    return new Peer(SPS.id + type, {
         secure: true,
         port: 3001,
         host: "localhost",
@@ -82,8 +141,10 @@ function SyraPeerSwarm() {
                     username: 'support@script-it.net'
                 },
                 {
-                    url: 'stun:stun2.l.google.com:19302'
-                },
+					url: 'turn:webrtcweb.com:3478',
+					username: 'muazkh',
+					credential: 'muazkh'
+				},
                 {
                     url: 'stun:stun3.l.google.com:19302'
                 },
@@ -93,36 +154,9 @@ function SyraPeerSwarm() {
             ]
         }
     });
-    SPS.peervideo = new Peer(SPS.id + "video", {
-        secure: true,
-        port: 3001,
-        host: "localhost",
-        path: "/peerjs",
-		debug:3,
-        config: {
-            'iceServers': [{
-                    url: 'turn:turn.bistri.com:80',
-                    credential: 'homeo',
-                    username: 'homeo'
-                },
-                {
-                    url: 'turn:numb.viagenie.ca',
-                    credential: 'Testcell4506!@',
-                    username: 'support@script-it.net'
-                },
-                {
-                    url: 'stun:stun2.l.google.com:19302'
-                },
-                {
-                    url: 'stun:stun3.l.google.com:19302'
-                },
-                {
-                    url: 'stun:stun4.l.google.com:19302'
-                }
-            ]
-        }
-    });
-
+	};
+	SPS.peervideo = SPS.InitNewPeer(SPS.id,"video");
+	SPS.peeraudio = SPS.InitNewPeer(SPS.id,"audio");
 
     SPS.GetRandomNumber = (upto, not) => {
         let raw = Math.random();
@@ -149,9 +183,12 @@ function SyraPeerSwarm() {
     SPS.BindPeer = () => {
         SPS.peeraudio.on('error', (err) => {
             SPS.log("Peer audio error", JSON.stringify(err));
-            if (err.type == "peer-unavailable") {
-				SPS.peersocket.emit("delete peer",SPS.currentPeerId);
-				console.log("Peer unavailable");
+			if (err.type == "network"){
+				setTimeout(() => {
+				SPS.peeraudio.reconnect();
+				},1000);
+			}
+			if (err.type == "peer-unavailable") {
                 SPS.RetryConnection(true);
             }
         });
@@ -164,9 +201,6 @@ function SyraPeerSwarm() {
                 //On receive stream
                 call.on('stream', (stream) => {
                     stream.getAudioTracks().forEach(track => SPS.mediastreamtemp.addTrack(track)); //Merge video and audio tracks into mediastreamtemp
-                    stream.oninactive = () => {
-                        SPS.connected = false;
-                    };
                     //Set video source and play stream.
                     SPS.video.srcObject = SPS.mediastreamtemp;
                     SPS.video.play();
@@ -184,9 +218,12 @@ function SyraPeerSwarm() {
         });
         SPS.peervideo.on('error', (err) => {
             SPS.log("Peer video error", JSON.stringify(err));
-            if (err.type == "peer-unavailable") {
-				SPS.peersocket.emit("delete peer",SPS.currentPeerId);
-                SPS.connected = false;
+			if (err.type == "network"){
+				setTimeout(() => {
+				SPS.peervideo.reconnect();
+				},1000);
+			}
+			if (err.type == "peer-unavailable") {
                 SPS.RetryConnection(true);
             }
         });
@@ -200,9 +237,6 @@ function SyraPeerSwarm() {
                 //On receive stream
                 call.on('stream', (stream) => {
                     stream.getVideoTracks().forEach(track => SPS.mediastreamtemp.addTrack(track)); //Merge video and audio tracks into mediastreamtemp
-                    stream.oninactive = () => {
-                        SPS.RetryConnection(true);
-                    };
                     //Set video source and play stream.
                     SPS.video.srcObject = SPS.mediastreamtemp;
                     SPS.video.play();
@@ -223,9 +257,7 @@ function SyraPeerSwarm() {
     SPS.BindPeer();
     SPS.findStat = (m, type) => [...m.values()].find(s => s.type == type && !s.isRemote);
     SPS.AutoReconnect = () => {
-		//SPS.peersocket.emit("get peer list");
         if (window.ClearIntervals) {
-            console.log("Clearing interval");
             try {
                 clearInterval(SPS.ARI);
             } catch (e) {
@@ -234,7 +266,6 @@ function SyraPeerSwarm() {
             window.IntervalExists = false;
             window.ClearIntervals = false;
         }
-		console.log(SPS.peervideo.connections);
 		for(var i in SPS.peervideo.connections){ let peer = SPS.peervideo.connections[i]; for(var i2 in peer){ let con = peer[i2]; if(!con.pc){SPS.peervideo.connections[i].splice(i2,1);}}}
 		for(var i in SPS.peeraudio.connections){ let peer = SPS.peeraudio.connections[i]; for(var i2 in peer){ let con = peer[i2]; if(!con.pc){SPS.peeraudio.connections[i].splice(i2,1);}}}
 		let viewers = 0;
@@ -244,6 +275,8 @@ function SyraPeerSwarm() {
 				viewers = viewers + 1;
 			}
 		}
+		
+
         if (SPS.peervideo)
             SPS.peersocket.emit("set peer clients", SPS.id, viewers);
         SPS.peersocket.emit("get channel clients");
@@ -274,17 +307,19 @@ function SyraPeerSwarm() {
                         case 'failed':
                             SPS.RetryConnection(true);
                             break;
-                        case 'new':
-                            SPS.RetryConnection(true);
-                            break;
                     }
                 }
             } else {
                 SPS.RetryConnection(true);
             }
+			if(SPS.recordStreamVideo){
+
+			}
         }
     };
     SPS.RetryConnection = (setconnected) => {
+		SPS.peersocket.emit("delete peer",SPS.id);
+		console.log("Connection retry called");
 		for(var i in SPS.peervideo.connections){
 			let peer = SPS.peervideo.connections[i];
 			for(var i2 in peer){
@@ -295,7 +330,7 @@ function SyraPeerSwarm() {
 				}
 				if(con.peerConnection){
 					con.peerConnection.close();
-					con.peerConnection = null;
+					delete con.peerConnection;
 				}
 			}
 		}
@@ -309,7 +344,7 @@ function SyraPeerSwarm() {
 				}
 				if(con.peerConnection){
 					con.peerConnection.close();
-					con.peerConnection = null;
+					delete con.peerConnection;
 				}
 			}
 		}
@@ -330,9 +365,19 @@ function SyraPeerSwarm() {
         if (SPS.channelId)
             SPS.peersocket.emit("join channel", SPS.channelId);
     });
+	SPS.determineDepth = (amt,depth) => {
+		let a = amt/3;
+		if(a > 1) {
+			depth = depth + 1;
+			return SPS.determineDepth(a,depth);
+		}else{
+			return depth;
+		}
+	};
     SPS.peersocket.on("channel clients", (m) => {
-        SPS.availabletiers = Math.ceil(parseFloat(m) / 4);
+        SPS.availabletiers = SPS.determineDepth(parseFloat(m),0);
         SPS.log(m + " clients");
+        //SPS.log(SPS.determineDepth(3000,0) + " tiers available");
     });
     SPS.peersocket.on("peer list", (peers) => {
         SPS.log(peers);
@@ -395,16 +440,20 @@ function SyraPeerSwarm() {
     };
     SPS.WatchBroadcast = (rid) => {
         SPS.video = document.getElementById(SPS.remotevideoElement);
+		SPS.video.addEventListener("suspend", () => {
+			SPS.RetryConnection(true);
+		});
 		let hasDropped = new Promise(resolve => {
 			SPS.icfd = true;
 			let lastPackets = countdown = 0,
 				timeout = 3; // seconds
 			let lastTime = 0;
 			let iv = setInterval(() => {
-				if(lastTime == SPS.video.currentTime){
-					SPS.RetryConnection(true);
+				if(lastTime == SPS.video.currentTime && SPS.video.currentTime > 0){
 					if(SPS.onVideoDrop)
 						SPS.onVideoDrop();
+					SPS.log("Video was paused too long. Reconnecting");
+					SPS.RetryConnection(true);
 				}
 				lastTime = SPS.video.currentTime;
 			}, 4000);
@@ -416,14 +465,6 @@ function SyraPeerSwarm() {
 		}).catch((e) => {
 			console.log(e);
 		});
-		SPS.video.onplay = () => {
-		};
-        SPS.video.onloadedmetadata = (e) => {
-            SPS.video.play();
-        };
-        SPS.video.onsuspend = () => {
-            SPS.RetryConnection(true);
-        };
         SPS.channelId = rid;
         SPS.peersocket.emit("join channel", rid);
         if (!SPS.ARI) {
@@ -434,12 +475,6 @@ function SyraPeerSwarm() {
     SPS.StartBroadcast = (rid) => {
         $.get("/setliveid/" + rid, () => {});
         SPS.video = document.getElementById(SPS.localvideoElement);
-        SPS.video.onloadedmetadata = (e) => {
-            SPS.video.play();
-        };
-        SPS.video.onsuspend = () => {
-            SPS.RetryConnection(true);
-        };
         SPS.channelId = rid;
         SPS.peersocket.emit("join channel", rid);
         if (!SPS.ARI) {

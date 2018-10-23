@@ -79,21 +79,29 @@ module.exports = function(socket,channels,sockets,sessions) {
 		
     });
     socket.on("add peer", function(peer) {
-		log(peer + " added");
+
 		sockets[peer] = socket;
-        if (!channels[socket.Channel]) {
-			channels[socket.Channel] = {
-				clients: {},
-				peers: {}
-			};
-		}
-		if(channels[socket.Channel]){
-			if(!channels[socket.Channel].peers[peer]){
-				socket.peerid = peer;
-				channels[socket.Channel].peers[peer] = {Rating: 0, Max: 0, Tier: 0};
-				socket.emit("peer list", channels[socket.Channel].peers);
+		if(socket.Channel){
+			if (!channels[socket.Channel]) {
+				channels[socket.Channel] = {
+					clients: {},
+					peers: {}
+				};
 			}
-        }
+			if(channels[socket.Channel]){
+				if(!channels[socket.Channel].peers[peer]){
+					socket.peerid = peer;
+					channels[socket.Channel].peers[peer] = {Rating: 0, Max: 0, Tier: 0};
+					socket.emit("peer list", channels[socket.Channel].peers);
+				}else{
+					socket.peerid = peer;
+					channels[socket.Channel].peers[peer] = {Rating: 0, Max: 0, Tier: 0};
+					socket.emit("peer list", channels[socket.Channel].peers);	
+				}
+			}
+		}else{
+			socket.emit("hello");
+		}
     });
     socket.on("delete peer", function(peer) {
 		if (channels[socket.Channel]) {
