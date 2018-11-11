@@ -116,7 +116,6 @@ function SyraPeerSwarm() {
     });
 	};
 	self.peervideo = self.InitNewPeer(self.id,"video");
-	self.peeraudio = self.InitNewPeer(self.id,"audio");
 
     self.GetRandomNumber = (upto, not) => {
         let raw = Math.random();
@@ -141,39 +140,6 @@ function SyraPeerSwarm() {
         return false;
     };
     self.BindPeer = () => {
-        self.peeraudio.on('error', (err) => {
-            console.log("Peer audio error", JSON.stringify(err));
-			if (err.type == "network"){
-				self.peeraudio.reconnect();
-			}
-			if (err.type == "peer-unavailable") {
-                self.RetryConnection(true);
-            }
-        });
-        //Received call from the broadcaster
-        self.peeraudio.on('call', (call) => {
-            if (!self.isbroadcaster) {
-                self.peercallaudioreceive = call;
-                //Answer the call from broadcaster
-                call.answer(null, self.options);
-                //On receive stream
-                call.on('stream', (stream) => {
-                    stream.getAudioTracks().forEach(track => self.mediastreamtemp.addTrack(track)); //Merge video and audio tracks into mediastreamtemp
-                    //Set video source and play stream.
-                    self.video.srcObject = self.mediastreamtemp;
-                    self.video.play();
-                    self.recordStreamAudio = stream;
-                    self.peersocket.emit("add peer", self.id);
-                    self.speedtest((rating) => {
-                        self.peersocket.emit("set peer rating", self.id, rating);
-                        let max = Math.floor(rating / 500);
-                        self.peersocket.emit("set peer tier", self.id, self.tier);
-                        self.peersocket.emit("set peer max", self.id, max);
-                    });
-                    self.isrelaying = true;
-                });
-            }
-        });
         self.peervideo.on('error', (err) => {
             self.log("Peer video error", JSON.stringify(err));
 			if (err.type == "network"){
@@ -194,9 +160,7 @@ function SyraPeerSwarm() {
                 call.answer(null, self.options);
                 //On receive stream
                 call.on('stream', (stream) => {
-                    stream.getVideoTracks().forEach(track => self.mediastreamtemp.addTrack(track)); //Merge video and audio tracks into mediastreamtemp
-                    //Set video source and play stream.
-                    self.video.srcObject = self.mediastreamtemp;
+                    self.video.srcObject = stream;
                     self.video.play();
                     self.recordStreamVideo = stream;
                     self.peersocket.emit("add peer", self.id);
@@ -214,7 +178,23 @@ function SyraPeerSwarm() {
     };
     self.BindPeer();
     self.findStat = (m, type) => [...m.values()].find(s => s.type == type && !s.isRemote);
-    self.AutoReconnect = () => {
+    self.LastSnapshot = 0;
+	self.AutoReconnect = () => {
+		if((new Date()).getTime()/1000 - self.LastSnapshot > 60 && self.isbroadcaster){
+			self.LastSnapshot = (new Date()).getTime()/1000;
+			var video = $('#localvideo').get(0);
+			var scale = 0.5;
+			var canvas = document.createElement("canvas");
+			canvas.width = video.videoWidth * scale;
+			canvas.height = video.videoHeight * scale;
+			canvas.getContext('2d')
+				.drawImage(video, 0, 0, canvas.width, canvas.height);
+			$.post("/setthumbnail", {
+				img: canvas.toDataURL() //Takes the snapshot and uploads it as a base64 dataurl
+			}, function(data) {
+
+			});
+		}
         if (window.ClearIntervals) {
             try {
                 clearInterval(self.ARI);
@@ -225,7 +205,6 @@ function SyraPeerSwarm() {
             window.ClearIntervals = false;
         }
 		for(var i in self.peervideo.connections){ let peer = self.peervideo.connections[i]; for(var i2 in peer){ let con = peer[i2]; if(!con.pc){self.peervideo.connections[i].splice(i2,1);}}}
-		for(var i in self.peeraudio.connections){ let peer = self.peeraudio.connections[i]; for(var i2 in peer){ let con = peer[i2]; if(!con.pc){self.peeraudio.connections[i].splice(i2,1);}}}
 		let viewers = 0;
 		for(var i in self.peervideo.connections){
 			let peer = self.peervideo.connections[i];
@@ -234,14 +213,13 @@ function SyraPeerSwarm() {
 			}
 		}
 		
-		if(!self.connected)
+		if(!self.connected && !self.isbroadcaster)
 			self.peersocket.emit("get peer list");
         if (self.peervideo)
             self.peersocket.emit("set peer clients", self.id, viewers);
         self.peersocket.emit("get channel clients");
-        if(self.isbroadcaster){
 			self.peersocket.emit("add peer", self.id);
-		}
+		
 		if (self.isbroadcaster) {
             self.speedtest((rating) => {
                 self.tier = 0;
@@ -293,20 +271,7 @@ function SyraPeerSwarm() {
 				}
 			}
 		}
-		for(var i in self.peeraudio.connections){
-			let peer = self.peeraudio.connections[i];
-			for(var i2 in peer){
-				let con = peer[i2];
-				if(con.pc){
-				con.pc.close();
-				con.pc = null;
-				}
-				if(con.peerConnection){
-					con.peerConnection.close();
-					delete con.peerConnection;
-				}
-			}
-		}
+
         if (self.currentPeerId != 0) {
             if (!self.failIds[self.currentPeerId])
                 self.failIds[self.currentPeerId] = 1;
@@ -392,9 +357,7 @@ function SyraPeerSwarm() {
     });
     //Received call request from viewer
     self.peersocket.on("Call", (pr) => {
-        if (self.recordStreamAudio)
-            self.peercallaudio = self.peeraudio.call(pr + "audio", self.recordStreamAudio);
-        if (self.recordStreamVideo)
+		if (self.recordStreamVideo)
             self.peercallvideo = self.peervideo.call(pr + "video", self.recordStreamVideo);
     });
     self.ConnectToPeer = (pr) => {
@@ -463,18 +426,14 @@ function SyraPeerSwarm() {
             self.ARI = setInterval(self.AutoReconnect, 2000);
         }
         navigator.mediaDevices.getUserMedia({
-            video: true
+            video: true, audio:true
         }).then((st1) => {
 			self.connected = true;
             self.video.srcObject = st1;
+			self.video.muted = true;
             self.video.play();
             self.recordStreamVideo = st1;
-            navigator.mediaDevices.getUserMedia({
-                audio: {sampleRate:48000, channelCount: 2, autoGainControl : false }
-            }).then((st2) => {
-                self.recordStreamAudio = st2;
-                self.isbroadcaster = true;
-            });
+			self.isbroadcaster = true;
         });
     };
     return self;
