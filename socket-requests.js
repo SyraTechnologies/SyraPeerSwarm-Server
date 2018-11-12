@@ -13,7 +13,6 @@ module.exports = function(socket,channels,sockets,app) {
 				delete channels[socket.Channel].clients[socket.id];
 			if(channels[socket.Channel].peers[socket.peerid])
 				delete channels[socket.Channel].peers[socket.peerid];
-            log("Cleanup done");
         }
     });
 	socket.on("set peer rating",function(peer,rating){
@@ -22,42 +21,6 @@ module.exports = function(socket,channels,sockets,app) {
 				let temp = channels[socket.Channel].peers[peer]
 				temp.Rating = rating;
 				channels[socket.Channel].peers[peer] = temp;
-			}
-		}
-	});
-	socket.on("mute",(user) => {
-		if(socket.IsModerator){
-			if(channels[socket.Channel]){
-				channels[socket.Channel].muted[user] = true;
-				socket.emit("message","System",user + " muted");
-			}
-		}else{
-			socket.emit("message","System","You must be a moderator");
-		}
-	});
-	socket.on("unmute",(user) => {
-		if(socket.IsModerator){
-			if(channels[socket.Channel]){
-				delete channels[socket.Channel].muted[user];
-				socket.emit("message","System",user + " unmuted");
-			}
-		}else{
-			socket.emit("message","System","You must be a moderator");
-		}
-	});
-	socket.on("donation",(amt,frm,goal,donated,ctype) => {
-		if(socket.IsModerator){
-			if(socket.Channel){
-				if(channels[socket.Channel]){
-					app.model.User.find({xrpaddress: frm},function(err,found){
-						if(found){
-							if(found[0]){
-								frm = found[0].displayName;
-							}
-						}
-						EmitToChannel(socket.Channel,"donation",amt,frm,goal,donated,ctype);
-					});
-				}
 			}
 		}
 	});
@@ -115,7 +78,6 @@ module.exports = function(socket,channels,sockets,app) {
 		}
 	});
 	socket.on("Call",function(tid,rid){
-		log("Making call to " + tid + " from " + rid);
 		sockets[rid] = socket;
 		if(sockets[tid])
 			sockets[tid].emit("Call", rid);
@@ -126,7 +88,6 @@ module.exports = function(socket,channels,sockets,app) {
 				channels[channel].clients[key].socket.emit(v1, v2,v3,v4,v5,v6);
 			}catch(e){
 				delete channels[channel].clients[key];
-				console.log("Deleted " + key + " from " + channel);
 			}
         });
     }
@@ -169,7 +130,6 @@ module.exports = function(socket,channels,sockets,app) {
 				if(usr.user){
 					if(usr.user.displayName){
 						usrs[usr.user.displayName] = true;
-						console.log(usr);
 						if(usr.socket.IsModerator)
 							usrs[usr.user.displayName] = "Moderator";
 						
@@ -200,33 +160,8 @@ module.exports = function(socket,channels,sockets,app) {
 			};
 			socket.IsModerator = true;
 		}
-		if(socket.User){
-			if(socket.User.permissions.admin){
-				socket.IsModerator = true;
-			}
-		}
 		socket.Channel = channel;
-		if(socket.User){
-			app.model.Channel.find({_id: socket.User.channel},function(err,found){
-				if(found[0]){
-					if(found[0].hash === channel){
-						socket.IsModerator = true;
-					}
-				}
-				
-				
-				if(!channels[channel].clients[socket.id]){
-					channels[channel].clients[socket.id] = {
-						socket: socket,
-						user: socket.User
-					};
-					if(socket.User)
-						EmitToChannel(socket.Channel,"user joined",socket.User.displayName,socket.IsModerator);
-					socket.emit("joined channel",channel,socket.IsModerator);
-				
-				}
-			});
-		}
+		socket.emit("joined channel",channel,socket.IsModerator);
 
 		
     });
