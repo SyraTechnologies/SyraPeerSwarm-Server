@@ -1,0 +1,142 @@
+<html>
+	<head>
+		<script src="https://code.jquery.com/jquery-3.3.1.min.js"integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.js"></script>
+		<script src="/assets/peerjs.js"></script>
+	</head>
+	<body>
+	<video id="remotevideo" controls style="width:300px;"></video>
+	<video id="localvideo" controls style="width:300px;"></video>
+	<button class="button" onclick="broadcast();">Broadcast</button>
+	<button class="button" onclick="getstream();">Watch</button>
+
+	<script>
+	let id = function() {
+			let text = "";
+			let letters = "abcdefghijklmnopqrstuvwxyz";
+			for (var i = 0; i < 16; i++)
+				text += letters.charAt(Math.floor(Math.random() * letters.length));
+			return text;
+		}();
+
+
+	function broadcast(){
+		navigator.mediaDevices.getUserMedia({
+			video: true,audio:true
+		}).then((st1) => {
+			document.getElementById("localvideo").srcObject = st1;
+			document.getElementById("localvideo").play();
+			
+			SPB.HostSwarm("test",st1);
+		});
+	}
+	let BestPeer = null;
+	function getstream(){
+
+	SPB2.HostSwarm("test",null);
+		if(!window.PF){
+			window.PF = new PeerFinder(SPB2);
+		}
+		
+		PF.GetBestPeer("test",(bestpeer)=>{
+			BestPeer = bestpeer;
+			SPB2.GetStream(bestpeer,(stream)=>{
+				document.getElementById("remotevideo").srcObject = stream;
+				document.getElementById("remotevideo").play();
+			});
+		});
+
+		if(!BestPeer){
+			setTimeout(getstream,2000);
+		}
+	}
+	let SPB = new Peer(id, {
+			secure: true,
+			port: 2053,
+			host: "cryptsy.tv",
+			path: "/peerjs",
+			config: {
+				'iceServers': [{
+						url: 'turn:turn.bistri.com:80',
+						credential: 'homeo',
+						username: 'homeo'
+					},
+					{
+						url: 'turn:numb.viagenie.ca',
+						credential: 'Testcell4506!@',
+						username: 'support@script-it.net'
+					},
+					{
+						url: 'turn:webrtcweb.com:3478',
+						username: 'muazkh',
+						credential: 'muazkh'
+					},
+					{
+						url: 'stun:stun3.l.google.com:19302'
+					},
+					{
+						url: 'stun:stun4.l.google.com:19302'
+					}
+				]
+			}
+		});
+		let SPB2 = new Peer(id + "Receive", {
+			secure: true,
+			port: 2053,
+			host: "cryptsy.tv",
+			path: "/peerjs",
+			config: {
+				'iceServers': [{
+						url: 'turn:turn.bistri.com:80',
+						credential: 'homeo',
+						username: 'homeo'
+					},
+					{
+						url: 'turn:numb.viagenie.ca',
+						credential: 'Testcell4506!@',
+						username: 'support@script-it.net'
+					},
+					{
+						url: 'turn:webrtcweb.com:3478',
+						username: 'muazkh',
+						credential: 'muazkh'
+					},
+					{
+						url: 'stun:stun3.l.google.com:19302'
+					},
+					{
+						url: 'stun:stun4.l.google.com:19302'
+					}
+				]
+			}
+		});
+		/*
+			let hasDropped = new Promise(resolve => {
+				let video = document.getElementById("remotevideo");
+				let lastPackets = countdown = 0,
+					timeout = 3; // seconds
+				let lastTime = 0;
+				let iv = setInterval(() => {
+				
+					if(lastTime == video.currentTime && video.currentTime > 0){
+						let BestPeer = SPB2.getBestPeer();
+						delete SPB2.SwarmStream;
+						console.log(BestPeer);
+						for(var i in SPB2.connections){ let peer = SPB2.connections[i]; for(var i2 in peer){ let con = peer[i2]; if(!con.pc){SPB2.connections[i].splice(i2,1);}}}
+						
+						SPB2.GetStream(BestPeer,(stream)=>{
+							video.srcObject = stream;
+							video.play();
+						});
+					}
+					lastTime = video.currentTime;
+				}, 4000);
+			});
+
+			hasDropped.then(() => {
+			}).catch((e) => {
+				console.log(e);
+			});*/
+	</script>
+</body>
+</html>

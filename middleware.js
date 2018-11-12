@@ -3,7 +3,7 @@ var fileUpload = require('express-fileupload');
 var session = require('express-session');
 var MongoDBStore = require('connect-mongodb-session')(session);
 var store = new MongoDBStore({
-	uri: 'mongodb://localhost:27017/cam4btc',
+	uri: 'mongodb://localhost:27017/peerswarm',
 	collection: 'sessions'
 });
 var fs = require('fs');
@@ -42,59 +42,7 @@ module.exports = function(app){
 		}
 	}));
 	
-	app.use(function(req,res,next){
-		if(req.files){
-			var work = [];
-			for(var prop in req.files){
-				var file = req.files[prop];
-				if(file.name==''){
-					delete req.files[prop];
-				}else{
-					tmp.file(function(err, path, fd, cleanupCallback) {
-						req.files[prop].mv(path, function(err) {
-							req.files[prop].clean = cleanupCallback;
-							req.files[prop].path = path;
-							next();
-						});
-					});
-				}
-			}
-		}else{
-			next();
-		}
-	});
-	
-	
-	
-	if(process.env.NODE_ENV == "development"){
-		//mount mongo_express middleware for db debugging
-		var mongo_express = require('mongo-express/lib/middleware');
-		var mongo_express_config = require('./mongo_express_config');
-		app.use('/mongo-express', mongo_express(mongo_express_config));	
-		
-		//log request bodies.
-		var url = require('url');
-		
-		app.use(function(req,res,next){
-			
-			if(req.method =='GET'){
-				return next();
-			}
-			
-			var fname = './debug/'+url.parse(req.url).pathname.replace(/\//g,'-').substr(1) + '.json';
-			
-			fs.writeFile(fname, JSON.stringify(req.body || {}, null, 4) , function(err){
-				if(err){
-					return console.log('error writing request body to file: `%s`',fname);
-				}
-				console.log('wrote request body to file: `%s`',fname);
-			});
-			
-			next();
-			
-		});
-		
-	}
+
 	
 	//import responses to express.response prototype
 	//also add req.validateBody( schema )
@@ -121,14 +69,9 @@ module.exports = function(app){
 			req.locals.user = false;
 			next();
 		}else{
-			app.model.User.findById(req.session.user,function(err,user){
-				req.locals.user = user;
-				next();
-			});
+			next();
 		}
 	});
 
-	// morgan request logger
-	app.use(require('morgan')('combined'));
 	
 };
