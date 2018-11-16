@@ -1,4 +1,3 @@
-var cloudinary = require('cloudinary');
 var bcrypt = require('bcryptjs');
 
 module.exports = function( app, Types ){

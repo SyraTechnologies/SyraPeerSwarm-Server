@@ -1,6 +1,5 @@
 var path = require('path');
 
-var cloudinary = require('cloudinary');
 function guestid() {
 	var text = "";
 	var possible = "abcdefghijklmnopqrstuvwxyz1234567890";

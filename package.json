@@ -1,8 +1,5 @@
 {
-  "name": "cam4btc",
-  "private": true,
-  "version": "1.0.0",
-  "description": "",
+  "name": "SyraPeerSwarm-Server",
   "main": "index.js",
   "scripts": {
     "pre install": "npm install -g pm2 nodemon",
